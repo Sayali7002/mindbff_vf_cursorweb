@@ -10,6 +10,7 @@ import { StrengthEntry } from '@/lib/mindfulness';
 import StrengthsTracker from '@/components/features/mindfulness/StrengthsTracker';
 import { FiMessageCircle, FiSmile } from 'react-icons/fi';
 import { useMindfulness } from '@/hooks/useMindfulness';
+import { getUserKey, decryptMessage, isEncrypted } from '@/lib/encryption';
 
 
 interface DashboardProps {
@@ -264,9 +265,20 @@ export default function Dashboard({ userProfile: propUserProfile, onStartProfile
         .eq('user_id', userId)
         .eq('type', 'strength')
         .order('created_at', { ascending: false });
-        
+      
       if (!error && data) {
-        setUserStrengths(data as StrengthEntry[]);
+        const userKey = getUserKey(userId);
+        const decryptedStrengths = (data as StrengthEntry[]).map(entry => {
+          if (entry.content && isEncrypted(entry.content)) {
+            try {
+              return { ...entry, content: decryptMessage(entry.content, userKey) };
+            } catch (e) {
+              return { ...entry, content: '[Unable to decrypt]' };
+            }
+          }
+          return entry;
+        });
+        setUserStrengths(decryptedStrengths);
       }
     } catch (err) {
       console.error('Error fetching strengths:', err);
