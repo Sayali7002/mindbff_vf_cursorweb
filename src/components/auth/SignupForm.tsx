@@ -65,18 +65,13 @@ export default function SignupForm() {
       // For backward compatibility with existing code
       localStorage.setItem('isAuthenticated', 'true');
       
-      // Store redirect path in localStorage if it exists
-      if (redirectPath) {
-        localStorage.setItem('redirectAfterProfileSetup', redirectPath);
-      }
-      
       // Show success message
       setSuccessMessage('Account created successfully! A confirmation email has been sent to your email address. You can proceed with setting up your profile.');
       
-      // Redirect to profile setup after a short delay
+      // Redirect to dashboard after a longer delay (e.g., 5 seconds)
       setTimeout(() => {
-        router.push('/onboarding/profile-setup');
-      }, 1500);
+        router.push('/dashboard');
+      }, 5000);
       
     } catch (err: any) {
       console.error('Signup error:', err);

@@ -24,6 +24,7 @@ import EnhancedGratitudeJournal from '@/components/features/mindfulness/Enhanced
 import EnhancedJournal from '@/components/features/mindfulness/EnhancedJournal';
 import QuickBreathe from '@/components/features/mindfulness/QuickBreathe';
 import StrengthsTracker from '@/components/features/mindfulness/StrengthsTracker';
+import ProfileSetup from '@/components/profile/ProfileSetup';
 
 export default function PeerSupportPage() {
   // Configuration flag - Set to false to disable peer fetching for support-givers
@@ -70,6 +71,9 @@ export default function PeerSupportPage() {
   const [showJournal, setShowJournal] = useState(false);
   const [showBreathe, setShowBreathe] = useState(false);
   const [showStrengths, setShowStrengths] = useState(false);
+
+  // Add state to control showing profile setup
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
 
   // Use our custom hooks
   const { user, loading: authLoading } = useAuth();
@@ -451,6 +455,22 @@ export default function PeerSupportPage() {
     }
   }, [user, authLoading]);
 
+  // After fetching user profile, check if profile is complete
+  useEffect(() => {
+    if (userProfile && userProfile.completedSetup === false) {
+      setShowProfileSetup(true);
+    } else {
+      setShowProfileSetup(false);
+    }
+  }, [userProfile]);
+
+  // Handler for when profile setup is completed
+  const handleProfileSetupComplete = () => {
+    setShowProfileSetup(false);
+    // Refetch user profile or reload page to show peer-support features
+    window.location.href = '/peer-support';
+  };
+
   // Fetch peers based on user profile
   useEffect(() => {
     console.log('Fetching peers with userProfile:', userProfile);
@@ -761,6 +781,11 @@ export default function PeerSupportPage() {
         initialIsAnonymous={isAnonymous}
       />
     );
+  }
+
+  // At the top of the return statement, conditionally render ProfileSetup
+  if (showProfileSetup) {
+    return <ProfileSetup onComplete={handleProfileSetupComplete} />;
   }
 
   return (
