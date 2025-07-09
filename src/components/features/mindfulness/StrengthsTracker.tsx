@@ -16,6 +16,7 @@ export default function StrengthsTracker({ onClose }: StrengthsTrackerProps) {
   const [newStrength, setNewStrength] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [activeTab, setActiveTab] = useState<'new' | 'past'>('new');
+  const [showSavedAnimation, setShowSavedAnimation] = useState(false);
   
   const strengthCategories = [
     { id: 'personal', name: 'Personal', color: 'bg-blue-100 text-blue-700' },
@@ -36,6 +37,8 @@ export default function StrengthsTracker({ onClose }: StrengthsTrackerProps) {
     await createStrengthEntry(newStrength, selectedCategory);
     setNewStrength('');
     setSelectedCategory('');
+    setShowSavedAnimation(true);
+    setTimeout(() => setShowSavedAnimation(false), 1500);
   };
   
   const handleDeleteStrength = async (id: string) => {
@@ -122,6 +125,12 @@ export default function StrengthsTracker({ onClose }: StrengthsTrackerProps) {
                 </Button>
               </div>
             </div>
+            {showSavedAnimation && (
+              <div className="flex items-center justify-center my-4 animate-fade-in-out">
+                <span className="material-icons text-green-500 text-3xl mr-2">check_circle</span>
+                <span className="text-green-600 font-semibold text-lg">Saved!</span>
+              </div>
+            )}
           </div>
         ) : (
           <div>

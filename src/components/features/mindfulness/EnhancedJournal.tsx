@@ -27,6 +27,7 @@ export default function EnhancedJournal({ onClose, onNextActivity }: EnhancedJou
   const [transcriptionText, setTranscriptionText] = useState('');
   const recognitionRef = useRef<any>(null);
   const [activeTab, setActiveTab] = useState<'new' | 'past'>('new');
+  const [showSavedAnimation, setShowSavedAnimation] = useState(false);
   
   const moods = ['😊', '😌', '😐', '😔', '😢'];
   const moodLabels = ['Happy', 'Content', 'Neutral', 'Sad', 'Very Sad'];
@@ -36,6 +37,8 @@ export default function EnhancedJournal({ onClose, onNextActivity }: EnhancedJou
     
     await createJournalEntry(journalText, selectedMood);
     setJournalText('');
+    setShowSavedAnimation(true);
+    setTimeout(() => setShowSavedAnimation(false), 1500);
   };
   
   // Initialize speech recognition
@@ -249,6 +252,12 @@ export default function EnhancedJournal({ onClose, onNextActivity }: EnhancedJou
                 )}
               </div>
             </div>
+            {showSavedAnimation && (
+              <div className="flex items-center justify-center my-4 animate-fade-in-out">
+                <span className="material-icons text-green-500 text-3xl mr-2">check_circle</span>
+                <span className="text-green-600 font-semibold text-lg">Saved!</span>
+              </div>
+            )}
           </div>
         ) : (
           // Past entries tab

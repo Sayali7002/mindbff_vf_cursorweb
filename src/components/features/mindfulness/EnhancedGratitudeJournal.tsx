@@ -17,6 +17,7 @@ export default function EnhancedGratitudeJournal({ onClose, onNextActivity }: En
   const [gratitudeText, setGratitudeText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [activeTab, setActiveTab] = useState<'new' | 'past'>('new');
+  const [showSavedAnimation, setShowSavedAnimation] = useState(false);
   
   const gratitudeCategories = [
     { id: 'family', name: 'Family', color: 'bg-pink-100 text-pink-700 border-pink-200' },
@@ -38,6 +39,8 @@ export default function EnhancedGratitudeJournal({ onClose, onNextActivity }: En
     await createGratitudeEntry(gratitudeText, selectedCategory);
     setGratitudeText('');
     setSelectedCategory('');
+    setShowSavedAnimation(true);
+    setTimeout(() => setShowSavedAnimation(false), 1500);
   };
   
   const handleDeleteGratitude = async (id: string) => {
@@ -133,6 +136,12 @@ export default function EnhancedGratitudeJournal({ onClose, onNextActivity }: En
                 )}
               </div>
             </div>
+            {showSavedAnimation && (
+              <div className="flex items-center justify-center my-4 animate-fade-in-out">
+                <span className="material-icons text-green-500 text-3xl mr-2">check_circle</span>
+                <span className="text-green-600 font-semibold text-lg">Saved!</span>
+              </div>
+            )}
           </div>
         ) : (
           <div>
