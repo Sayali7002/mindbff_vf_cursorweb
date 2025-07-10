@@ -10,8 +10,6 @@ import { StrengthEntry } from '@/lib/mindfulness';
 import StrengthsTracker from '@/components/features/mindfulness/StrengthsTracker';
 import { FiMessageCircle, FiSmile } from 'react-icons/fi';
 import { useMindfulness } from '@/hooks/useMindfulness';
-import { getUserKey, decryptMessage, isEncrypted } from '@/lib/encryption';
-import { getStrengthEntries } from '@/lib/mindfulness';
 
 
 interface DashboardProps {
@@ -260,8 +258,16 @@ export default function Dashboard({ userProfile: propUserProfile, onStartProfile
   // Fetch user strengths
   const fetchUserStrengths = async (userId: string) => {
     try {
-      const entries = await getStrengthEntries(userId);
-      setUserStrengths(entries);
+      const { data, error } = await supabase
+        .from('mindfulness_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('type', 'strength')
+        .order('created_at', { ascending: false });
+        
+      if (!error && data) {
+        setUserStrengths(data as StrengthEntry[]);
+      }
     } catch (err) {
       console.error('Error fetching strengths:', err);
     }
@@ -632,13 +638,13 @@ export default function Dashboard({ userProfile: propUserProfile, onStartProfile
                         <div className="flex items-center justify-center">
                             <div className="relative w-28 h-28">
                                 <svg className="w-28 h-28 transform -rotate-90" viewBox="0 0 100 100">
-                                    <circle cx="50" cy="50" r="45" fill="none" stroke="#f3e1d4" strokeWidth="10" />
+                                    <circle cx="50" cy="50" r="45" fill="none" stroke="#c7bddb" strokeWidth="10" />
                                     <circle 
                                         cx="50" 
                                         cy="50" 
                                         r="45" 
                                         fill="none" 
-                                        stroke="bg-orange-500" 
+                                        stroke="#675095" 
                                         strokeWidth="10" 
                                         strokeDasharray={`${peopleSupported * 5}, 300`} 
                                     />
