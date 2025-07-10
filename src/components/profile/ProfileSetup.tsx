@@ -5,7 +5,9 @@ import { motion } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import { encryptProfileFields, decryptProfileFields } from '@/types/profile'
+// NOTE: We don't directly import encryptProfileFields here as encryption moves to server
+// import { encryptProfileFields, decryptProfileFields } from '@/types/profile'
+import { decryptProfileFields } from '@/types/profile' // Only decryptProfileFields is needed client-side
 
 export interface UserProfile {
   id: string
@@ -248,7 +250,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
   const [certificationFile, setCertificationFile] = useState<File | null>(null)
   const [showCelebrationModal, setShowCelebrationModal] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  
+
   // Add ref to track if profile has been loaded
   const profileLoadedRef = useRef(false);
 
@@ -258,29 +260,29 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
     if (profileLoadedRef.current && !shouldSync) {
       return;
     }
-    
+
     const loadProfileData = async () => {
       setIsLoading(true);
       try {
         // Check if user is authenticated
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (session?.user) {
           console.log("User is authenticated, checking for profile data");
-          
+
           // First check if we need to sync localStorage data with Supabase
           if (shouldSync) {
             console.log("Syncing localStorage data with Supabase");
             await syncLocalStorageWithSupabase(session.user.id);
           }
-          
+
           // Fetch profile from Supabase
           const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
-            
+
           if (error) {
             console.error('Error fetching profile from Supabase:', error);
             // Fallback to localStorage if Supabase fetch fails
@@ -288,7 +290,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           } else if (profile) {
             console.log("Profile found in Supabase:", profile);
             console.log("Profile completed_setup status:", profile.completed_setup);
-            
+
             // If user has already completed setup and is not explicitly syncing data,
             // redirect to dashboard
             if (profile.completed_setup && !shouldSync) {
@@ -296,7 +298,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
               router.push('/dashboard');
               return;
             }
-            
+
             // Decrypt sensitive fields
             const decrypted = decryptProfileFields({
               id: profile.id || '',
@@ -321,7 +323,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
             // Ensure id is always a string
             const mappedProfile: UserProfile = { ...decrypted, id: profile.id || '' };
             setProfileData(mappedProfile);
-            
+
             // Save to localStorage for backward compatibility
             localStorage.setItem('userProfile', JSON.stringify(mappedProfile));
             localStorage.setItem('profileSetupCompleted', profile.completed_setup ? 'true' : 'false');
@@ -333,7 +335,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           // User is not authenticated, load from localStorage
           loadFromLocalStorage();
         }
-        
+
         // Mark profile as loaded
         profileLoadedRef.current = true;
       } catch (error) {
@@ -343,13 +345,13 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
         setIsLoading(false);
       }
     };
-    
+
     // Helper function to load from localStorage
     const loadFromLocalStorage = () => {
       console.log("Loading profile data from localStorage");
       const storedProfile = localStorage.getItem('userProfile');
       const profileCompleted = localStorage.getItem('profileSetupCompleted');
-      
+
       if (storedProfile) {
         try {
           const parsedProfile = JSON.parse(storedProfile);
@@ -362,7 +364,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           console.error("Error parsing profile from localStorage:", error);
         }
       }
-      
+
       // Load support type if available
       const supportType = localStorage.getItem('supportType');
       if (supportType) {
@@ -371,7 +373,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           supportType
         }));
       }
-      
+
       // Load journey preferences if available
       const selectedJourneysJSON = localStorage.getItem('selectedJourneys');
       if (selectedJourneysJSON) {
@@ -388,7 +390,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           console.error("Error parsing selected journeys from localStorage:", error);
         }
       }
-      
+
       // Load journey note if available
       const journeyNote = localStorage.getItem('journeyNote');
       if (journeyNote) {
@@ -398,8 +400,8 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
         }));
       }
     };
-    
-    // Helper function to sync localStorage with Supabase
+
+    // Helper function to sync localStorage with Supabase (will now use API route)
     const syncLocalStorageWithSupabase = async (userId: string) => {
       try {
         // Get data from localStorage
@@ -407,109 +409,58 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
         const supportType = localStorage.getItem('supportType');
         const selectedJourneysJSON = localStorage.getItem('selectedJourneys');
         const journeyNote = localStorage.getItem('journeyNote');
-        
+
         if (!storedProfile && !supportType && !selectedJourneysJSON && !journeyNote) {
           console.log("No localStorage data to sync");
           return;
         }
-        
-        console.log("Syncing localStorage data with Supabase");
-        
-        // Prepare data to update or insert
-        const updateData: any = {
+
+        console.log("Syncing localStorage data with Supabase via API");
+
+        // Prepare data from localStorage for API call
+        let dataToSync: Partial<UserProfile> = {
           id: userId,
-          updated_at: new Date().toISOString()
+          //updatedAt: new Date().toISOString() // API route will handle updated_at
         };
-        
-        // Add data from localStorage profile if available
+
         if (storedProfile) {
           const parsedProfile = JSON.parse(storedProfile);
-          
-          // Map profile data to database fields
-          if (parsedProfile.name) updateData.name = parsedProfile.name;
-          if (parsedProfile.dateOfBirth) updateData.dob = parsedProfile.dateOfBirth;
-          if (parsedProfile.location) updateData.location = parsedProfile.location;
-          if (parsedProfile.gender) updateData.gender = parsedProfile.gender;
-          if (parsedProfile.workplace) updateData.workplace = parsedProfile.workplace;
-          if (parsedProfile.jobTitle) updateData.job_title = parsedProfile.jobTitle;
-          if (parsedProfile.education) updateData.education = parsedProfile.education;
-          if (parsedProfile.religiousBeliefs) updateData.religious_beliefs = parsedProfile.religiousBeliefs;
-          if (parsedProfile.communicationPreferences) updateData.communication_style = parsedProfile.communicationPreferences;
-          if (parsedProfile.availability) updateData.availability = parsedProfile.availability;
-          if (parsedProfile.supportPreferences) updateData.support_preferences = parsedProfile.supportPreferences;
-          if (parsedProfile.journeyNote) updateData.journey_note = parsedProfile.journeyNote;
-          if (parsedProfile.supportType) updateData.support_type = parsedProfile.supportType;
-          if (parsedProfile.completedSetup !== undefined) updateData.completed_setup = parsedProfile.completedSetup;
+          dataToSync = { ...dataToSync, ...parsedProfile };
         }
-        
-        // Add support type if available
-        if (supportType) {
-          updateData.support_type = supportType;
-        }
-        
-        // Add selected journeys if available
+
+        if (supportType) dataToSync.supportType = supportType;
         if (selectedJourneysJSON) {
           try {
             const selectedJourneys = JSON.parse(selectedJourneysJSON);
             if (Array.isArray(selectedJourneys) && selectedJourneys.length > 0) {
-              updateData.support_preferences = selectedJourneys;
+              dataToSync.supportPreferences = selectedJourneys;
             }
           } catch (error) {
             console.error("Error parsing selected journeys:", error);
           }
         }
-        
-        // Add journey note if available
-        if (journeyNote) {
-          updateData.journey_note = journeyNote;
+        if (journeyNote) dataToSync.journeyNote = journeyNote;
+
+        // Make an API call to save the data. Encryption happens on the server.
+        const response = await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(dataToSync),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to sync profile data');
         }
-        
-        // First check if profile exists
-        const { data: existingProfile, error: fetchError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', userId)
-          .single();
-          
-        if (fetchError) {
-          console.log("No profile found, creating new profile");
-          
-          // Include created_at for new profiles
-          updateData.created_at = new Date().toISOString();
-          
-          // Create new profile
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert(updateData);
-            
-          if (insertError) {
-            console.error('Error creating profile in Supabase:', insertError);
-          } else {
-            console.log("Successfully created profile in Supabase");
-            // Clear localStorage after successful sync
-            clearLocalStorageData();
-          }
-        } else {
-          console.log("Updating existing profile");
-          // Update existing profile
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update(updateData)
-            .eq('id', userId);
-            
-          if (updateError) {
-            console.error('Error updating profile in Supabase:', updateError);
-          } else {
-            console.log("Successfully updated profile in Supabase");
-            // Clear localStorage after successful sync
-            clearLocalStorageData();
-          }
-        }
+        console.log("Successfully synced localStorage data with Supabase via API");
+        clearLocalStorageData();
       } catch (error) {
-        console.error("Error syncing localStorage data with Supabase:", error);
+        console.error("Error syncing localStorage data with Supabase via API:", error);
       }
     };
-    
+
     // Helper function to clear localStorage data after syncing with Supabase
     const clearLocalStorageData = () => {
       // Keep isAuthenticated flag but clear profile data
@@ -518,7 +469,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
       localStorage.removeItem('journeyNote');
       console.log("Cleared localStorage data after syncing with Supabase");
     };
-    
+
     // Helper function to calculate profile completion percentage
     function calculateProfileCompletionPercentage(profile: any): number {
       const fields = [
@@ -532,7 +483,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
       });
       return Math.round((filledCount / totalFields) * 100);
     }
-    
+
     loadProfileData();
   }, [shouldSync, router]); // Add router to dependency array
 
@@ -542,7 +493,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
       ...prev,
       [name]: value
       };
-      
+
       // Handle support type selection
       if (name === 'supportType') {
         if (value === 'I want to be there for others') {
@@ -562,7 +513,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           console.log("Using direct support type:", value);
         }
       }
-      
+
       // Special handling for certification file
       if (name === 'certificationFile' && certificationFile) {
         updatedData.certifications = {
@@ -571,7 +522,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           status: 'pending' as const
         };
       }
-      
+
       // Special handling for certification name
       if (name === 'certificationName') {
         updatedData.certifications = {
@@ -580,7 +531,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           status: updatedData.certifications?.status || 'none' as const
         };
       }
-      
+
       // Special handling for certification date
       if (name === 'certificationDate') {
         updatedData.certifications = {
@@ -589,7 +540,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           status: updatedData.certifications?.status || 'none' as const
         };
       }
-      
+
       // Calculate profile completion percentage
       const filledFields = Object.entries(updatedData).filter(([key, val]) => {
         if (key === 'completedSetup' || key === 'profileCompletionPercentage') {
@@ -604,15 +555,15 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
         }
         return val !== '' && val !== false;
       }).length;
-      
+
       const percentage = Math.round((filledFields / totalFields) * 100);
-      
+
       // Also update the localStorage with the new profile data
       localStorage.setItem('userProfile', JSON.stringify({
         ...updatedData,
         profileCompletionPercentage: percentage
       }));
-      
+
       return {
         ...updatedData,
         profileCompletionPercentage: percentage
@@ -638,13 +589,13 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
   // Determine the next appropriate step based on current selections
   const getNextStep = (currentStep: number) => {
     const nextStep = currentStep + 1;
-    
+
     // Skip certification step if user is not a support giver
     if (nextStep === allSteps.findIndex(step => step.id === 'certification') && profileData.supportType !== 'support-giver') {
       // Return the step after certification or just complete the setup
       return nextStep + 1 < allSteps.length ? nextStep + 1 : -1;
     }
-    
+
     return nextStep < allSteps.length ? nextStep : -1;
   };
 
@@ -665,14 +616,14 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           !field.required || profileData[field.name as keyof UserProfile] !== ''
         )
       );
-      
+
       // All mandatory fields should be filled at this point
       if (!mandatoryFieldsFilled) {
         // If somehow mandatory fields aren't filled, don't proceed
         alert("Please fill all required fields");
         return;
       }
-      
+
       completeSetup();
     }
   };
@@ -683,100 +634,44 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
       ...profileData,
       completedSetup: true // Mark as completed since all mandatory fields are filled
     };
-    
+
     localStorage.setItem('userProfile', JSON.stringify(updatedProfileData));
     localStorage.setItem('profileSetupCompleted', 'true');
-    
+
     // Clear temporary storage used during onboarding
     localStorage.removeItem('selectedJourneys');
-    
-    // Try to save to Supabase if user is authenticated
+
+    // Try to save to Supabase via API route
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session) {
-        console.log("Saving profile data to Supabase from ProfileSetup");
+        console.log("Saving profile data to Supabase via API from ProfileSetup");
         console.log("Support type being saved:", updatedProfileData.supportType);
-        
-        // Encrypt sensitive fields before saving
-        const encryptedProfile = encryptProfileFields(updatedProfileData, session.user.id);
-        const supabaseProfileData: Record<string, any> = {
-          id: session.user.id,
-          name: encryptedProfile.name,
-          dob: encryptedProfile.dateOfBirth,
-          location: encryptedProfile.location,
-          gender: encryptedProfile.gender,
-          workplace: encryptedProfile.workplace || null,
-          job_title: encryptedProfile.jobTitle || null,
-          education: encryptedProfile.education || null,
-          religious_beliefs: encryptedProfile.religiousBeliefs || null,
-          availability: encryptedProfile.availability || null,
-          communication_style: encryptedProfile.communicationPreferences || null,
-          support_preferences: encryptedProfile.supportPreferences || [],
-          journey_note: encryptedProfile.journeyNote || null,
-          completed_setup: true,
-          support_type: encryptedProfile.supportType || null,
-          updated_at: new Date().toISOString()
-        };
-        
-        console.log("Supabase profile data:", supabaseProfileData);
-        
-        // First check if profile exists
-        const { data: existingProfile, error: fetchError } = await supabase
-          .from('profiles')
-          .select('id, created_at')
-          .eq('id', session.user.id)
-          .single();
-          
-        if (fetchError) {
-          console.log("No profile found, creating new profile from ProfileSetup");
-          
-          // Make sure to include created_at if it's a new profile
-          supabaseProfileData.created_at = new Date().toISOString();
-          
-          // Create new profile
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert(supabaseProfileData);
-            
-          if (insertError) {
-            console.error('Error creating profile in Supabase:', insertError);
-          } else {
-            console.log("Successfully created profile in Supabase with completed_setup=true");
-            // Clear localStorage after successful sync
-            clearLocalStorageData();
-          }
-        } else {
-          console.log("Updating existing profile from ProfileSetup");
-          
-          // Preserve the original created_at timestamp
-          if (existingProfile.created_at) {
-            delete supabaseProfileData.created_at;
-          }
-          
-          // Update existing profile
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update(supabaseProfileData)
-            .eq('id', session.user.id);
-            
-          if (updateError) {
-            console.error('Error updating profile in Supabase:', updateError);
-          } else {
-            console.log("Successfully updated profile in Supabase with completed_setup=true");
-            // Clear localStorage after successful sync
-            clearLocalStorageData();
-          }
+
+        const response = await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedProfileData), // Send raw data, encryption happens server-side
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to save profile data');
         }
+        console.log("Successfully saved profile to Supabase via API with completed_setup=true");
+        clearLocalStorageData();
       }
     } catch (error) {
-      console.error("Error saving to Supabase:", error);
-      // Continue with the flow even if Supabase save fails
+      console.error("Error saving to Supabase via API:", error);
+      // Continue with the flow even if API save fails
     }
-    
+
     // Show celebration modal
     setShowCelebrationModal(true);
-    
+
     // If onComplete callback is provided, call it instead of routing
     if (onComplete) {
       onComplete(updatedProfileData);
@@ -796,12 +691,12 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
   // Function to handle navigation after celebration
   const handleContinueAfterCelebration = () => {
     setShowCelebrationModal(false);
-    
+
     // Check if there's a redirect path stored
     const redirectPath = localStorage.getItem('redirectAfterProfileSetup');
     if (redirectPath) {
       localStorage.removeItem('redirectAfterProfileSetup');
-      
+
       // Handle paths properly whether they start with a slash or not
       const formattedPath = redirectPath.startsWith('/') ? redirectPath : `/${redirectPath}`;
       router.push(formattedPath);
@@ -829,98 +724,51 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
         !field.required || profileData[field.name as keyof UserProfile] !== ''
       )
     );
-    
+
     if (!mandatoryFieldsFilled) {
       alert("Please fill all required fields");
       return;
     }
-    
+
     // Save profile data
     const updatedProfileData = {
       ...profileData,
       completedSetup: true // Mark as completed since all mandatory fields are filled
     };
-    
+
     localStorage.setItem('userProfile', JSON.stringify(updatedProfileData));
     localStorage.setItem('profileSetupCompleted', 'true');
-    
+
     // Clear temporary storage used during onboarding
     localStorage.removeItem('selectedJourneys');
-    
-    // Try to save to Supabase if user is authenticated
+
+    // Try to save to Supabase via API route
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session) {
-        console.log("Saving basic profile data to Supabase from ProfileSetup");
-        
-        // Encrypt sensitive fields before saving
-        const encryptedProfile = encryptProfileFields(updatedProfileData, session.user.id);
-        const supabaseProfileData: Record<string, any> = {
-          id: session.user.id,
-          name: encryptedProfile.name,
-          dob: encryptedProfile.dateOfBirth,
-          location: encryptedProfile.location,
-          gender: encryptedProfile.gender,
-          workplace: encryptedProfile.workplace || null,
-          job_title: encryptedProfile.jobTitle || null,
-          education: encryptedProfile.education || null,
-          religious_beliefs: encryptedProfile.religiousBeliefs || null,
-          availability: encryptedProfile.availability || null,
-          communication_style: encryptedProfile.communicationPreferences || null,
-          support_preferences: encryptedProfile.supportPreferences || [],
-          journey_note: encryptedProfile.journeyNote || null,
-          completed_setup: true,
-          support_type: encryptedProfile.supportType || null,
-          updated_at: new Date().toISOString()
-        };
-        
-        // First check if profile exists
-        const { data: existingProfile, error: fetchError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', session.user.id)
-          .single();
-          
-        if (fetchError) {
-          console.log("No profile found, creating new profile from ProfileSetup");
-          // Include created_at for new profiles
-          supabaseProfileData.created_at = new Date().toISOString();
-          
-          // Create new profile
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert(supabaseProfileData);
-            
-          if (insertError) {
-            console.error('Error creating profile in Supabase:', insertError);
-          } else {
-            console.log("Successfully created profile in Supabase with completed_setup=true");
-            // Clear localStorage after successful sync
-            clearLocalStorageData();
-          }
-        } else {
-          console.log("Updating existing profile from ProfileSetup");
-          // Update existing profile
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update(supabaseProfileData)
-            .eq('id', session.user.id);
-            
-          if (updateError) {
-            console.error('Error updating profile in Supabase:', updateError);
-          } else {
-            console.log("Successfully updated profile in Supabase with completed_setup=true");
-            // Clear localStorage after successful sync
-            clearLocalStorageData();
-          }
+        console.log("Saving basic profile data to Supabase via API from ProfileSetup");
+
+        const response = await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedProfileData), // Send raw data, encryption happens server-side
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to save basic profile data');
         }
+        console.log("Successfully saved basic profile to Supabase via API with completed_setup=true");
+        clearLocalStorageData();
       }
     } catch (error) {
-      console.error("Error saving to Supabase:", error);
-      // Continue with the flow even if Supabase save fails
+      console.error("Error saving basic profile to Supabase via API:", error);
+      // Continue with the flow even if API save fails
     }
-    
+
     // Show celebration modal
     setShowCelebrationModal(true);
   }
@@ -928,7 +776,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
   const currentStepData = currentStep < steps.length 
     ? steps[currentStep] 
     : allSteps[currentStep];
-  
+
   const isLastMandatoryStep = currentStep === steps.length - 1;
   const isLastStep = currentStep === allSteps.length - 1;
   const isMandatoryStep = currentStep < steps.length;
@@ -1185,7 +1033,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
               >
                 Back
           </Button>
-              
+
             {isLastMandatoryStep && !showOptionalSteps ? (
               <div className="space-x-3">
                 <Button
