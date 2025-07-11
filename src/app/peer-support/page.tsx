@@ -24,7 +24,6 @@ import EnhancedGratitudeJournal from '@/components/features/mindfulness/Enhanced
 import EnhancedJournal from '@/components/features/mindfulness/EnhancedJournal';
 import QuickBreathe from '@/components/features/mindfulness/QuickBreathe';
 import StrengthsTracker from '@/components/features/mindfulness/StrengthsTracker';
-import ProfileSetup from '@/components/profile/ProfileSetup';
 
 export default function PeerSupportPage() {
   // Configuration flag - Set to false to disable peer fetching for support-givers
@@ -71,9 +70,6 @@ export default function PeerSupportPage() {
   const [showJournal, setShowJournal] = useState(false);
   const [showBreathe, setShowBreathe] = useState(false);
   const [showStrengths, setShowStrengths] = useState(false);
-
-  // Add state to control showing profile setup
-  const [showProfileSetup, setShowProfileSetup] = useState(false);
 
   // Use our custom hooks
   const { user, loading: authLoading } = useAuth();
@@ -357,7 +353,7 @@ export default function PeerSupportPage() {
   // Helper function to calculate profile completion percentage
   const calculateProfileCompletionPercentage = (profile: any): number => {
     const fields = [
-      'name', 'dob', 'location', 'gender', 'workplace', 'job_title', 
+      'name', /*'dob', 'location', 'gender', */ 'workplace', 'job_title', 
       'education', 'religious_beliefs', 'communication_style', 'availability'
     ];
     
@@ -454,22 +450,6 @@ export default function PeerSupportPage() {
     fetchUserProfile();
     }
   }, [user, authLoading]);
-
-  // After fetching user profile, check if profile is complete
-  useEffect(() => {
-    if (userProfile && userProfile.completedSetup === false) {
-      setShowProfileSetup(true);
-    } else {
-      setShowProfileSetup(false);
-    }
-  }, [userProfile]);
-
-  // Handler for when profile setup is completed
-  const handleProfileSetupComplete = () => {
-    setShowProfileSetup(false);
-    // Refetch user profile or reload page to show peer-support features
-    window.location.href = '/peer-support';
-  };
 
   // Fetch peers based on user profile
   useEffect(() => {
@@ -781,11 +761,6 @@ export default function PeerSupportPage() {
         initialIsAnonymous={isAnonymous}
       />
     );
-  }
-
-  // At the top of the return statement, conditionally render ProfileSetup
-  if (showProfileSetup) {
-    return <ProfileSetup onComplete={handleProfileSetupComplete} />;
   }
 
   return (
@@ -1196,7 +1171,7 @@ export default function PeerSupportPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
                           <button
                             className="bg-blue-50 hover:bg-blue-100 rounded-lg p-4 flex flex-col items-center shadow transition"
-                            onClick={() => setShowAISuggestions(true)}
+                            onClick={() => router.push('/ai-companion')}
                           >
                             <span className="material-icons text-4xl text-blue-500 mb-2">smart_toy</span>
                             <span className="font-semibold">AI Companion</span>
@@ -1312,14 +1287,14 @@ export default function PeerSupportPage() {
           />
         )}
 
-        {showAISuggestions && (
+       {/*} {showAISuggestions && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-xl shadow-lg p-6 max-w-2xl w-full relative">
-              <button onClick={() => setShowAISuggestions(false)} className="absolute top-2 right-2 text-gray-500 hover:text-gray-700">✕</button>
+            <div className="bg-white rounded-xl shadow-lg w-full h-[80%]">
+              <button onClick={() => router.push('/ai-companion')} className="absolute top-2 right-2 text-gray-500 hover:text-gray-700">✕</button>
               <AICompanion />
             </div>
           </div>
-        )}
+        )} */}
         {showAffirmations && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
               <button onClick={() => setShowAffirmations(false)} className="absolute top-2 right-2 text-gray-500 hover:text-gray-700">✕</button>
